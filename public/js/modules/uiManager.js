@@ -4,6 +4,8 @@
 export class UIManager {
     constructor() {
         this.modals = new Map();
+        this.batchMode = false;
+        this.selectedItems = new Set(); // 存储选中的项目ID
         this.initializeModals();
     }
 
@@ -15,7 +17,9 @@ export class UIManager {
             'uploadModal',
             'createFolderModal',
             'renameModal',
-            'deleteModal'
+            'deleteModal',
+            'batchActionModal',
+            'pasteModal'
         ];
 
         modalIds.forEach(id => {
@@ -450,6 +454,258 @@ export class UIManager {
         if (loadingMask) {
             loadingMask.style.display = 'none';
         }
+    }
+
+    // ========== 批量操作相关方法 ==========
+
+    /**
+     * 切换批量选择模式
+     */
+    toggleBatchMode() {
+        this.batchMode = !this.batchMode;
+        this.selectedItems.clear();
+        
+        const batchToolbar = document.getElementById('batchToolbar');
+        const normalToolbar = document.getElementById('normalToolbar');
+        
+        if (this.batchMode) {
+            if (batchToolbar) batchToolbar.style.display = 'flex';
+            if (normalToolbar) normalToolbar.style.display = 'none';
+        } else {
+            if (batchToolbar) batchToolbar.style.display = 'none';
+            if (normalToolbar) normalToolbar.style.display = 'flex';
+        }
+        
+        this.updateBatchButtons();
+        return this.batchMode;
+    }
+
+    /**
+     * 检查是否在批量模式
+     */
+    isBatchMode() {
+        return this.batchMode;
+    }
+
+    /**
+     * 选择/取消选择项目
+     */
+    toggleItemSelection(itemId, itemType) {
+        const key = `${itemType}_${itemId}`;
+        
+        if (this.selectedItems.has(key)) {
+            this.selectedItems.delete(key);
+        } else {
+            this.selectedItems.add(key);
+        }
+        
+        this.updateBatchButtons();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * 选择所有项目
+     */
+    selectAllItems(items) {
+        items.forEach(item => {
+            const type = item.mime_type ? 'file' : 'folder';
+            const key = `${type}_${item.id}`;
+            this.selectedItems.add(key);
+        });
+        this.updateBatchButtons();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * 取消选择所有项目
+     */
+    clearSelection() {
+        this.selectedItems.clear();
+        this.updateBatchButtons();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * 获取选中的项目
+     */
+    getSelectedItems() {
+        const fileIds = [];
+        const folderIds = [];
+        
+        this.selectedItems.forEach(key => {
+            const [type, id] = key.split('_');
+            if (type === 'file') {
+                fileIds.push(parseInt(id));
+            } else if (type === 'folder') {
+                folderIds.push(parseInt(id));
+            }
+        });
+        
+        return { fileIds, folderIds };
+    }
+
+    /**
+     * 获取选中的项目数量
+     */
+    getSelectedCount() {
+        return this.selectedItems.size;
+    }
+
+    /**
+     * 更新批量操作按钮状态
+     */
+    updateBatchButtons() {
+        const count = this.getSelectedCount();
+        const hasSelection = count > 0;
+        
+        const buttons = ['batchMoveBtn', 'batchCopyBtn', 'batchDeleteBtn', 'batchCutBtn'];
+        buttons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.disabled = !hasSelection;
+                btn.style.opacity = hasSelection ? '1' : '0.5';
+            }
+        });
+        
+        // 更新选中计数显示
+        const countDisplay = document.getElementById('selectedCount');
+        if (countDisplay) {
+            countDisplay.textContent = count > 0 ? `已选择 ${count} 项` : '';
+        }
+    }
+
+    /**
+     * 更新选中状态的UI显示
+     */
+    updateSelectionUI() {
+        // 这个方法会在文件列表渲染时被调用，用于更新每个项目的选中状态
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(checkbox => {
+            const itemId = checkbox.dataset.id;
+            const itemType = checkbox.dataset.type;
+            const key = `${itemType}_${itemId}`;
+            
+            checkbox.checked = this.selectedItems.has(key);
+            
+            // 更新父级div的选中样式
+            const parentDiv = checkbox.closest('.file-item, .folder-item');
+            if (parentDiv) {
+                if (this.selectedItems.has(key)) {
+                    parentDiv.classList.add('selected');
+                } else {
+                    parentDiv.classList.remove('selected');
+                }
+            }
+        });
+    }
+
+    /**
+     * 显示批量操作模态框
+     */
+    showBatchActionModal(action, count) {
+        const modal = this.modals.get('batchActionModal');
+        if (!modal) return;
+
+        const titleEl = modal.querySelector('.modal-title');
+        const messageEl = modal.querySelector('.modal-message');
+        
+        const actionNames = {
+            'move': '移动',
+            'copy': '复制',
+            'delete': '删除'
+        };
+        
+        if (titleEl) titleEl.textContent = `确认${actionNames[action]}`;
+        if (messageEl) {
+            messageEl.textContent = `确定要${actionNames[action]}选中的 ${count} 个项目吗？`;
+        }
+        
+        // 设置action到modal的data属性中
+        modal.dataset.action = action;
+        
+        this.showModal('batchActionModal');
+    }
+
+    /**
+     * 显示粘贴操作模态框
+     */
+    showPasteModal(clipboard, targetFolderId) {
+        const modal = this.modals.get('pasteModal');
+        if (!modal) return;
+
+        const titleEl = modal.querySelector('.modal-title');
+        const messageEl = modal.querySelector('.modal-message');
+        
+        const description = clipboard.getDescription();
+        
+        if (titleEl) titleEl.textContent = '粘贴项目';
+        if (messageEl) {
+            messageEl.textContent = `${description} 到当前文件夹？`;
+        }
+        
+        this.showModal('pasteModal');
+    }
+
+    /**
+     * 显示批量操作结果通知
+     */
+    showBatchResult(action, successCount, totalCount, errors = [], notificationManager) {
+        const actionNames = {
+            'move': '移动',
+            'copy': '复制',
+            'delete': '删除'
+        };
+        
+        if (successCount === totalCount) {
+            if (notificationManager) {
+                notificationManager.success(`${actionNames[action]}成功`, `成功${actionNames[action]} ${successCount} 个项目`);
+            }
+        } else {
+            let message = `${actionNames[action]}完成：${successCount}/${totalCount} 成功`;
+            if (errors.length > 0) {
+                // 只显示前3个错误，避免通知过长
+                const displayErrors = errors.slice(0, 3);
+                const remainingCount = errors.length - 3;
+                message += `<br>失败项目：${displayErrors.join(', ')}`;
+                if (remainingCount > 0) {
+                    message += ` 等${remainingCount}个错误`;
+                }
+            }
+            if (notificationManager) {
+                notificationManager.warning('部分操作失败', message);
+            }
+        }
+    }
+
+    /**
+     * 显示文件夹上传进度
+     */
+    showFolderUploadProgress(totalFiles, processedFiles, currentFile) {
+        const modal = this.modals.get('uploadModal');
+        if (!modal) return;
+
+        const titleEl = modal.querySelector('.modal-title');
+        const progressEl = modal.querySelector('.upload-progress');
+        const statusEl = modal.querySelector('.upload-status');
+        
+        if (titleEl) titleEl.textContent = '上传文件夹';
+        if (progressEl) {
+            const percentage = (processedFiles / totalFiles) * 100;
+            progressEl.style.width = `${percentage}%`;
+        }
+        if (statusEl) {
+            statusEl.textContent = `正在上传 ${processedFiles}/${totalFiles}: ${currentFile}`;
+        }
+        
+        this.showModal('uploadModal');
+    }
+
+    /**
+     * 关闭批量操作相关模态框
+     */
+    closeBatchModals() {
+        this.closeModal('batchActionModal');
+        this.closeModal('pasteModal');
     }
 }
 

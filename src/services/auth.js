@@ -9,7 +9,7 @@ export class AuthService {
     this.env = env;
     this.jwtSecret = env.JWT_SECRET;
     this.adminUsername = env.ADMIN_USERNAME;
-    this.adminPassword = env.ADMIN_PASSWORD || 'admin123'; // 默认密码，建议在环境变量中设置
+    this.adminPassword = env.ADMIN_PASSWORD; // 从环境变量获取，不使用默认值
   }
 
   /**

@@ -261,6 +261,80 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * 更新文件所属文件夹
+   * @param {number} fileId - 文件ID
+   * @param {number|null} folderId - 新的文件夹ID
+   * @returns {Object} 更新后的文件信息
+   */
+  async updateFileFolder(fileId, folderId) {
+    try {
+      // 检查文件是否存在
+      const file = await this.db.prepare('SELECT * FROM files WHERE id = ?').bind(fileId).first();
+      if (!file) {
+        throw new Error('File not found');
+      }
+
+      // 检查目标文件夹下是否已存在同名文件
+      const existingQuery = folderId
+        ? 'SELECT id FROM files WHERE name = ? AND folder_id = ? AND id != ?'
+        : 'SELECT id FROM files WHERE name = ? AND folder_id IS NULL AND id != ?';
+
+      const existingParams = folderId ? [file.name, folderId, fileId] : [file.name, fileId];
+      const existing = await this.db.prepare(existingQuery).bind(...existingParams).first();
+
+      if (existing) {
+        throw new Error('目标文件夹中已存在同名文件');
+      }
+
+      // 更新文件所属文件夹
+      const updateQuery = 'UPDATE files SET folder_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? RETURNING *';
+      const result = await this.db.prepare(updateQuery).bind(folderId, fileId).first();
+
+      return result;
+    } catch (error) {
+      console.error('Error updating file folder:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新文件夹的父文件夹
+   * @param {number} folderId - 文件夹ID
+   * @param {number|null} parentId - 新的父文件夹ID
+   * @returns {Object} 更新后的文件夹信息
+   */
+  async updateFolderParent(folderId, parentId) {
+    try {
+      // 检查文件夹是否存在
+      const folder = await this.db.prepare('SELECT * FROM folders WHERE id = ?').bind(folderId).first();
+      if (!folder) {
+        throw new Error('Folder not found');
+      }
+
+      // 检查目标文件夹下是否已存在同名文件夹
+      const existingQuery = parentId
+        ? 'SELECT id FROM folders WHERE name = ? AND parent_id = ? AND id != ?'
+        : 'SELECT id FROM folders WHERE name = ? AND parent_id IS NULL AND id != ?';
+
+      const existingParams = parentId ? [folder.name, parentId, folderId] : [folder.name, folderId];
+      const existing = await this.db.prepare(existingQuery).bind(...existingParams).first();
+
+      if (existing) {
+        throw new Error('目标文件夹中已存在同名文件夹');
+      }
+
+      // 更新文件夹的父文件夹
+      const updateQuery = 'UPDATE folders SET parent_id = ? WHERE id = ? RETURNING *';
+      const result = await this.db.prepare(updateQuery).bind(parentId, folderId).first();
+
+      return result;
+    } catch (error) {
+      console.error('Error updating folder parent:', error);
+      throw error;
+    }
+  }
+
   // ================== 文件分片操作 ==================
 
   /**

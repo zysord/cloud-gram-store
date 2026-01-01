@@ -535,4 +535,285 @@ export class FileService {
       };
     }
   }
+
+  // ========== 批量操作方法 ==========
+
+  /**
+   * 批量移动文件和文件夹
+   * @param {Array} fileIds - 文件ID数组
+   * @param {Array} folderIds - 文件夹ID数组
+   * @param {number|null} targetFolderId - 目标文件夹ID
+   * @returns {Object} 移动结果
+   */
+  async batchMove(fileIds, folderIds, targetFolderId) {
+    // 参数验证
+    if (!Array.isArray(fileIds)) fileIds = [];
+    if (!Array.isArray(folderIds)) folderIds = [];
+    
+    console.log(`[INFO] 开始批量移动: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个, 目标: ${targetFolderId || '根目录'}`);
+    
+    const results = {
+      success: true,
+      movedFiles: 0,
+      movedFolders: 0,
+      errors: []
+    };
+
+    try {
+      // 移动文件
+      for (const fileId of fileIds) {
+        try {
+          await this.db.updateFileFolder(fileId, targetFolderId);
+          results.movedFiles++;
+          console.log(`[INFO] 文件 ${fileId} 移动成功`);
+        } catch (error) {
+          results.errors.push(`文件 ${fileId}: ${error.message}`);
+          console.error(`[ERROR] 移动文件 ${fileId} 失败:`, error);
+        }
+      }
+
+      // 移动文件夹
+      for (const folderId of folderIds) {
+        try {
+          // 检查是否会造成循环移动
+          const canMove = await this.validateFolderMove(folderId, targetFolderId);
+          if (!canMove) {
+            throw new Error('不能将文件夹移动到其自身或子文件夹中');
+          }
+
+          await this.db.updateFolderParent(folderId, targetFolderId);
+          results.movedFolders++;
+          console.log(`[INFO] 文件夹 ${folderId} 移动成功`);
+        } catch (error) {
+          results.errors.push(`文件夹 ${folderId}: ${error.message}`);
+          console.error(`[ERROR] 移动文件夹 ${folderId} 失败:`, error);
+        }
+      }
+
+      results.success = results.errors.length === 0;
+      return results;
+
+    } catch (error) {
+      console.error(`[ERROR] 批量移动失败:`, error);
+      results.success = false;
+      results.errors.push(`批量移动失败: ${error.message}`);
+      return results;
+    }
+  }
+
+  /**
+   * 批量复制文件和文件夹
+   * @param {Array} fileIds - 文件ID数组
+   * @param {Array} folderIds - 文件夹ID数组
+   * @param {number|null} targetFolderId - 目标文件夹ID
+   * @returns {Object} 复制结果
+   */
+  async batchCopy(fileIds, folderIds, targetFolderId) {
+    // 参数验证
+    if (!Array.isArray(fileIds)) fileIds = [];
+    if (!Array.isArray(folderIds)) folderIds = [];
+    
+    console.log(`[INFO] 开始批量复制: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个, 目标: ${targetFolderId || '根目录'}`);
+    
+    const results = {
+      success: true,
+      copiedFiles: 0,
+      copiedFolders: 0,
+      errors: []
+    };
+
+    try {
+      // 复制文件
+      for (const fileId of fileIds) {
+        try {
+          await this.copyFile(fileId, targetFolderId);
+          results.copiedFiles++;
+          console.log(`[INFO] 文件 ${fileId} 复制成功`);
+        } catch (error) {
+          results.errors.push(`文件 ${fileId}: ${error.message}`);
+          console.error(`[ERROR] 复制文件 ${fileId} 失败:`, error);
+        }
+      }
+
+      // 复制文件夹（递归）
+      for (const folderId of folderIds) {
+        try {
+          await this.copyFolder(folderId, targetFolderId);
+          results.copiedFolders++;
+          console.log(`[INFO] 文件夹 ${folderId} 复制成功`);
+        } catch (error) {
+          results.errors.push(`文件夹 ${folderId}: ${error.message}`);
+          console.error(`[ERROR] 复制文件夹 ${folderId} 失败:`, error);
+        }
+      }
+
+      results.success = results.errors.length === 0;
+      return results;
+
+    } catch (error) {
+      console.error(`[ERROR] 批量复制失败:`, error);
+      results.success = false;
+      results.errors.push(`批量复制失败: ${error.message}`);
+      return results;
+    }
+  }
+
+  /**
+   * 批量删除文件和文件夹
+   * @param {Array} fileIds - 文件ID数组
+   * @param {Array} folderIds - 文件夹ID数组
+   * @returns {Object} 删除结果
+   */
+  async batchDelete(fileIds, folderIds) {
+    // 参数验证
+    if (!Array.isArray(fileIds)) fileIds = [];
+    if (!Array.isArray(folderIds)) folderIds = [];
+    
+    console.log(`[INFO] 开始批量删除: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个`);
+    
+    const results = {
+      success: true,
+      deletedFiles: 0,
+      deletedFolders: 0,
+      errors: []
+    };
+
+    try {
+      // 删除文件
+      for (const fileId of fileIds) {
+        try {
+          await this.deleteFile(fileId);
+          results.deletedFiles++;
+          console.log(`[INFO] 文件 ${fileId} 删除成功`);
+        } catch (error) {
+          results.errors.push(`文件 ${fileId}: ${error.message}`);
+          console.error(`[ERROR] 删除文件 ${fileId} 失败:`, error);
+        }
+      }
+
+      // 删除文件夹
+      for (const folderId of folderIds) {
+        try {
+          await this.deleteFolder(folderId);
+          results.deletedFolders++;
+          console.log(`[INFO] 文件夹 ${folderId} 删除成功`);
+        } catch (error) {
+          results.errors.push(`文件夹 ${folderId}: ${error.message}`);
+          console.error(`[ERROR] 删除文件夹 ${folderId} 失败:`, error);
+        }
+      }
+
+      results.success = results.errors.length === 0;
+      return results;
+
+    } catch (error) {
+      console.error(`[ERROR] 批量删除失败:`, error);
+      results.success = false;
+      results.errors.push(`批量删除失败: ${error.message}`);
+      return results;
+    }
+  }
+
+  /**
+   * 复制单个文件
+   * @param {number} fileId - 文件ID
+   * @param {number|null} targetFolderId - 目标文件夹ID
+   */
+  async copyFile(fileId, targetFolderId) {
+    // 获取原文件信息
+    const originalFile = await this.db.getFileById(fileId);
+    if (!originalFile) {
+      throw new Error('原文件不存在');
+    }
+
+    // 获取原文件分片
+    const chunks = await this.db.getFileChunks(fileId);
+    if (!chunks || chunks.length === 0) {
+      throw new Error('原文件分片不存在');
+    }
+
+    // 创建新文件记录
+    const newFile = await this.db.createFile(
+      originalFile.name,
+      targetFolderId,
+      originalFile.size,
+      originalFile.mime_type
+    );
+
+    // 复制分片记录（引用相同的Telegram文件ID，不实际复制数据）
+    for (const chunk of chunks) {
+      await this.db.createFileChunk(
+        newFile.id,
+        chunk.chunk_index,
+        chunk.telegram_file_id,
+        chunk.size
+      );
+    }
+
+    return newFile;
+  }
+
+  /**
+   * 递归复制文件夹
+   * @param {number} folderId - 文件夹ID
+   * @param {number|null} targetFolderId - 目标文件夹ID
+   */
+  async copyFolder(folderId, targetFolderId) {
+    // 获取原文件夹信息
+    const originalFolder = await this.db.getFolderById(folderId);
+    if (!originalFolder) {
+      throw new Error('原文件夹不存在');
+    }
+
+    // 创建新文件夹
+    const newFolder = await this.db.createFolder(
+      originalFolder.name,
+      targetFolderId
+    );
+
+    // 复制文件夹中的文件
+    const files = await this.db.getFilesByFolder(folderId);
+    for (const file of files) {
+      await this.copyFile(file.id, newFolder.id);
+    }
+
+    // 递归复制子文件夹
+    const subFolders = await this.db.getFoldersByParent(folderId);
+    for (const subFolder of subFolders) {
+      await this.copyFolder(subFolder.id, newFolder.id);
+    }
+
+    return newFolder;
+  }
+
+  /**
+   * 验证文件夹移动是否有效（防止循环移动）
+   * @param {number} folderId - 要移动的文件夹ID
+   * @param {number|null} targetFolderId - 目标文件夹ID
+   * @returns {boolean} 是否可以移动
+   */
+  async validateFolderMove(folderId, targetFolderId) {
+    // 如果目标是null（根目录），总是允许
+    if (targetFolderId === null) {
+      return true;
+    }
+
+    // 如果目标文件夹是自身，不允许
+    if (folderId === targetFolderId) {
+      return false;
+    }
+
+    // 检查目标文件夹是否是当前文件夹的子文件夹
+    let currentParent = targetFolderId;
+    while (currentParent !== null) {
+      if (currentParent === folderId) {
+        return false; // 目标文件夹是当前文件夹的子文件夹，不允许
+      }
+      const parentFolder = await this.db.getFolderById(currentParent);
+      currentParent = parentFolder ? parentFolder.parent_id : null;
+    }
+
+    return true;
+  }
+
 }

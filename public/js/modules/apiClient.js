@@ -482,6 +482,100 @@ export class ApiClient {
         return this.get(`/api/folders/${folderId}`);
     }
 
+    // ========== 批量操作 API ==========
+
+    /**
+     * 批量移动文件和文件夹
+     */
+    async batchMove(fileIds, folderIds, targetFolderId) {
+        return this.post('/api/batch/move', {
+            file_ids: fileIds,
+            folder_ids: folderIds,
+            target_folder_id: targetFolderId
+        });
+    }
+
+    /**
+     * 批量复制文件和文件夹
+     */
+    async batchCopy(fileIds, folderIds, targetFolderId) {
+        return this.post('/api/batch/copy', {
+            file_ids: fileIds,
+            folder_ids: folderIds,
+            target_folder_id: targetFolderId
+        });
+    }
+
+    /**
+     * 批量删除文件和文件夹
+     */
+    async batchDelete(fileIds, folderIds) {
+        return this.post('/api/batch/delete', {
+            file_ids: fileIds,
+            folder_ids: folderIds
+        });
+    }
+
+    /**
+     * 上传文件夹（递归创建结构）
+     */
+    async uploadFolder(folderName, entries, targetFolderId = null) {
+        const results = {
+            success: true,
+            createdFolders: 0,
+            uploadedFiles: 0,
+            totalFiles: 0,
+            errors: []
+        };
+
+        try {
+            // 首先创建根文件夹
+            const rootFolder = await this.createFolder(folderName, targetFolderId);
+            results.createdFolders++;
+
+            // 递归处理条目
+            await this.processFolderEntriesUpload(entries, rootFolder.id, results);
+
+            results.success = results.errors.length === 0;
+            return results;
+        } catch (error) {
+            results.success = false;
+            results.errors.push(`上传文件夹失败: ${error.message}`);
+            return results;
+        }
+    }
+
+    /**
+     * 递归处理文件夹条目上传
+     */
+    async processFolderEntriesUpload(entries, parentFolderId, results) {
+        for (const entry of entries) {
+            if (entry.isDirectory) {
+                try {
+                    // 创建子文件夹
+                    const subFolder = await this.createFolder(entry.name, parentFolderId);
+                    results.createdFolders++;
+                    
+                    // 递归处理子条目
+                    if (entry.children && entry.children.length > 0) {
+                        await this.processFolderEntriesUpload(entry.children, subFolder.id, results);
+                    }
+                } catch (error) {
+                    results.errors.push(`创建文件夹 ${entry.name}: ${error.message}`);
+                }
+            } else if (entry.isFile && entry.file) {
+                results.totalFiles++;
+                try {
+                    // 上传文件
+                    await this.uploadFile(entry.file, parentFolderId);
+                    results.uploadedFiles++;
+                } catch (error) {
+                    results.errors.push(`上传文件 ${entry.name}: ${error.message}`);
+                }
+            }
+        }
+    }
+
     // ========== 工具方法 ==========
 
     /**

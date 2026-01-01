@@ -258,6 +258,67 @@ export default {
         return jsonResponse({ success: true });
       });
 
+      // ========== 批量操作路由 ==========
+
+      /**
+       * 批量移动文件和文件夹
+       */
+      router.post('/api/batch/move', async (request) => {
+        const token = auth.extractToken(request);
+        if (!auth.verifyToken(token)) {
+          return errorResponse('Unauthorized', 401);
+        }
+
+        const { file_ids, folder_ids, target_folder_id } = await request.json();
+
+        if (!Array.isArray(file_ids) || !Array.isArray(folder_ids)) {
+          return errorResponse('Invalid request: file_ids and folder_ids must be arrays', 400);
+        }
+
+        const result = await fileService.batchMove(file_ids, folder_ids, target_folder_id);
+        return jsonResponse(result);
+      });
+
+      /**
+       * 批量复制文件和文件夹
+       */
+      router.post('/api/batch/copy', async (request) => {
+        const token = auth.extractToken(request);
+        if (!auth.verifyToken(token)) {
+          return errorResponse('Unauthorized', 401);
+        }
+
+        const { file_ids, folder_ids, target_folder_id } = await request.json();
+
+        if (!Array.isArray(file_ids) || !Array.isArray(folder_ids)) {
+          return errorResponse('Invalid request: file_ids and folder_ids must be arrays', 400);
+        }
+
+        const result = await fileService.batchCopy(file_ids, folder_ids, target_folder_id);
+        return jsonResponse(result);
+      });
+
+      /**
+       * 批量删除文件和文件夹
+       */
+      router.post('/api/batch/delete', async (request) => {
+        const token = auth.extractToken(request);
+        if (!auth.verifyToken(token)) {
+          return errorResponse('Unauthorized', 401);
+        }
+
+        const { file_ids, folder_ids } = await request.json();
+
+        if (!Array.isArray(file_ids) || !Array.isArray(folder_ids)) {
+          return errorResponse('Invalid request: file_ids and folder_ids must be arrays', 400);
+        }
+
+        const result = await fileService.batchDelete(file_ids, folder_ids);
+        return jsonResponse(result);
+      });
+
+      // 文件夹上传现在通过前端直接调用 createFolder 和 uploadFile API 实现
+
       // 处理路由
       console.log(`[REQUEST] ${requestId} - 开始路由处理`);
       const response = await router.handle(request);

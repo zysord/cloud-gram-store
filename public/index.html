@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudGramStore - 个人文件存储</title>
 
-    <!-- Ant Design CSS -->
-    <!-- <link href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.css" rel="stylesheet"> -->
-    <!-- <link href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/antd.min.css" rel="stylesheet"> -->
-	<link href="/css/antd@5.12.8/dist/reset.css" rel="stylesheet">
     <!-- 自定义样式 -->
     <link href="/css/style.css" rel="stylesheet">
+    <!-- 简单的CSS重置 -->
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 
     <!-- Ant Design Icons -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/@ant-design/icons@5.2.6/dist/antd-icon-umd.min.js"></script> -->
@@ -65,21 +69,70 @@
         </div>
 
         <!-- 工具栏 -->
-        <div class="toolbar">
+        <div class="toolbar" id="normalToolbar">
             <div class="toolbar-left">
                 <button id="uploadBtn" class="btn btn-primary">
                     <span class="btn-icon">📁</span>
                     上传文件
                 </button>
-                <button id="createFolderBtn" class="btn btn-secondary">
+                <button id="uploadFolderBtn" class="btn btn-primary">
                     <span class="btn-icon">📂</span>
+                    上传文件夹
+                </button>
+                <button id="createFolderBtn" class="btn btn-secondary">
+                    <span class="btn-icon">➕</span>
                     新建文件夹
+                </button>
+                <button id="pasteBtn" class="btn btn-outline" disabled>
+                    <span class="btn-icon">📋</span>
+                    粘贴
                 </button>
             </div>
             <div class="toolbar-right">
+                <button id="batchModeBtn" class="btn btn-warning">
+                    <span class="btn-icon">☑️</span>
+                    批量操作
+                </button>
                 <button id="refreshBtn" class="btn btn-outline">
                     <span class="btn-icon">🔄</span>
                     刷新
+                </button>
+            </div>
+        </div>
+
+        <!-- 批量操作工具栏 -->
+        <div class="toolbar batch-toolbar" id="batchToolbar" style="display: none;">
+            <div class="toolbar-left">
+                <span id="selectedCount" class="selected-count"></span>
+                <button id="batchSelectAllBtn" class="btn btn-outline">
+                    <span class="btn-icon">✅</span>
+                    全选
+                </button>
+                <button id="batchClearSelectionBtn" class="btn btn-outline">
+                    <span class="btn-icon">❌</span>
+                    清空
+                </button>
+            </div>
+            <div class="toolbar-right">
+                <button id="batchCutBtn" class="btn btn-warning" disabled>
+                    <span class="btn-icon">✂️</span>
+                    剪切
+                </button>
+                <button id="batchCopyBtn" class="btn btn-secondary" disabled>
+                    <span class="btn-icon">📋</span>
+                    复制
+                </button>
+                <button id="batchMoveBtn" class="btn btn-primary" disabled>
+                    <span class="btn-icon">➡️</span>
+                    移动
+                </button>
+                <button id="batchDeleteBtn" class="btn btn-danger" disabled>
+                    <span class="btn-icon">🗑️</span>
+                    删除
+                </button>
+                <button id="batchModeBtnExit" class="btn btn-outline" onclick="app.handleBatchModeToggle()">
+                    <span class="btn-icon">✖️</span>
+                    退出
                 </button>
             </div>
         </div>
@@ -98,6 +151,9 @@
 
     <!-- 上传文件输入框（隐藏） -->
     <input type="file" id="fileInput" multiple style="display: none;">
+    
+    <!-- 上传文件夹输入框（隐藏） -->
+    <input type="file" id="folderInput" webkitdirectory multiple style="display: none;">
 
     <!-- 模态框容器 -->
     <div id="modalContainer"></div>
@@ -177,6 +233,40 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('deleteModal')">取消</button>
                 <button id="confirmDelete" class="btn btn-danger">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量操作确认模态框 -->
+    <div id="batchActionModal" class="modal" style="display: none;" data-action="">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">确认操作</h3>
+                <button class="modal-close" onclick="closeModal('batchActionModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message">确定要执行此操作吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('batchActionModal')">取消</button>
+                <button id="confirmBatchAction" class="btn btn-primary">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 粘贴确认模态框 -->
+    <div id="pasteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">确认粘贴</h3>
+                <button class="modal-close" onclick="closeModal('pasteModal')">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message">确定要粘贴选中的项目吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('pasteModal')">取消</button>
+                <button id="confirmPaste" class="btn btn-primary">粘贴</button>
             </div>
         </div>
     </div>

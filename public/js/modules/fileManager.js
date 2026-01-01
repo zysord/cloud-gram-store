@@ -616,4 +616,113 @@ export class FileManager {
             totalTime: (endTime - startTime) / 1000
         };
     }
+
+    // ========== 批量操作方法 ==========
+
+    /**
+     * 批量移动文件和文件夹
+     * @param {Array} fileIds - 文件ID数组
+     * @param {Array} folderIds - 文件夹ID数组
+     * @param {string|null} targetFolderId - 目标文件夹ID
+     * @returns {Promise<Object>} - 操作结果
+     */
+    async batchMove(fileIds, folderIds, targetFolderId) {
+        // 参数验证
+        if (!Array.isArray(fileIds)) fileIds = [];
+        if (!Array.isArray(folderIds)) folderIds = [];
+        
+        try {
+            console.log(`批量移动: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个, 目标: ${targetFolderId || '根目录'}`);
+            const result = await this.apiClient.batchMove(fileIds, folderIds, targetFolderId);
+            console.log('批量移动成功:', result);
+            return result;
+        } catch (error) {
+            console.error('批量移动失败:', error);
+            const newError = new Error('批量移动失败：' + error.message);
+            if (error.status) newError.status = error.status;
+            if (error.url) newError.url = error.url;
+            if (error.method) newError.method = error.method;
+            if (error.details) newError.details = error.details;
+            throw newError;
+        }
+    }
+
+    /**
+     * 批量复制文件和文件夹
+     * @param {Array} fileIds - 文件ID数组
+     * @param {Array} folderIds - 文件夹ID数组
+     * @param {string|null} targetFolderId - 目标文件夹ID
+     * @returns {Promise<Object>} - 操作结果
+     */
+    async batchCopy(fileIds, folderIds, targetFolderId) {
+        // 参数验证
+        if (!Array.isArray(fileIds)) fileIds = [];
+        if (!Array.isArray(folderIds)) folderIds = [];
+        
+        try {
+            console.log(`批量复制: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个, 目标: ${targetFolderId || '根目录'}`);
+            const result = await this.apiClient.batchCopy(fileIds, folderIds, targetFolderId);
+            console.log('批量复制成功:', result);
+            return result;
+        } catch (error) {
+            console.error('批量复制失败:', error);
+            const newError = new Error('批量复制失败：' + error.message);
+            if (error.status) newError.status = error.status;
+            if (error.url) newError.url = error.url;
+            if (error.method) newError.method = error.method;
+            if (error.details) newError.details = error.details;
+            throw newError;
+        }
+    }
+
+    /**
+     * 批量删除文件和文件夹
+     * @param {Array} fileIds - 文件ID数组
+     * @param {Array} folderIds - 文件夹ID数组
+     * @returns {Promise<Object>} - 操作结果
+     */
+    async batchDelete(fileIds, folderIds) {
+        // 参数验证
+        if (!Array.isArray(fileIds)) fileIds = [];
+        if (!Array.isArray(folderIds)) folderIds = [];
+        
+        try {
+            console.log(`批量删除: 文件 ${fileIds.length} 个, 文件夹 ${folderIds.length} 个`);
+            const result = await this.apiClient.batchDelete(fileIds, folderIds);
+            console.log('批量删除成功:', result);
+            return result;
+        } catch (error) {
+            console.error('批量删除失败:', error);
+            const newError = new Error('批量删除失败：' + error.message);
+            if (error.status) newError.status = error.status;
+            if (error.url) newError.url = error.url;
+            if (error.method) newError.method = error.method;
+            if (error.details) newError.details = error.details;
+            throw newError;
+        }
+    }
+
+    /**
+     * 上传文件夹
+     * @param {string} folderName - 文件夹名称
+     * @param {Array} entries - 文件夹条目结构
+     * @param {string|null} targetFolderId - 目标文件夹ID
+     * @returns {Promise<Object>} - 上传结果
+     */
+    async uploadFolder(folderName, entries, targetFolderId = null) {
+        try {
+            console.log(`上传文件夹: ${folderName}, 条目数: ${entries.length}, 目标: ${targetFolderId || '根目录'}`);
+            const result = await this.apiClient.uploadFolder(folderName, entries, targetFolderId);
+            console.log('文件夹上传成功:', result);
+            return result;
+        } catch (error) {
+            console.error('文件夹上传失败:', error);
+            const newError = new Error('文件夹上传失败：' + error.message);
+            if (error.status) newError.status = error.status;
+            if (error.url) newError.url = error.url;
+            if (error.method) newError.method = error.method;
+            if (error.details) newError.details = error.details;
+            throw newError;
+        }
+    }
 }
